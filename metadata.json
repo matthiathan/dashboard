@@ -1,0 +1,6 @@
+{
+  "name": "OpsSignage Dashboard",
+  "description": "A rotating digital signage dashboard for landscape mobile displays featuring video playback, task monitoring, and live environmental data.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

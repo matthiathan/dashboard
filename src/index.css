@@ -1,0 +1,42 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-gold: #c5a059;
+  --color-charcoal: #1a1a1a;
+  --color-charcoal-elevated: #242424;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-charcoal text-white overflow-hidden;
+  }
+}
+
+.ops-container {
+  @apply w-full h-full p-10 flex flex-col overflow-hidden relative border-4 border-gold/20 font-sans;
+}
+
+.landscape-lock {
+  width: 100vw;
+  height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Fallback for portrait mode - rotate context */
+@media (orientation: portrait) {
+  .landscape-lock {
+    width: 100vh;
+    height: 100vw;
+    transform: rotate(90deg);
+    transform-origin: center center;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    translate: -50% -50%;
+  }
+}
+
