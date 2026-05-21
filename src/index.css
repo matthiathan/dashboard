@@ -28,3 +28,105 @@
   flex-direction: column;
 }
 
+/* 
+  Mobile Landscape & Constrained Height Optimization (max-height: 640px)
+  Fits the telemetry, calendar, weather, traffic, and task desks perfectly 
+  on landscape mobile viewports.
+*/
+@media (max-height: 640px) {
+  body {
+    overflow-y: auto !important;
+  }
+  
+  .landscape-lock {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+  }
+
+  .ops-container {
+    height: auto !important;
+    min-height: 100vh !important;
+    overflow-y: auto !important;
+    padding: 0.75rem !important;
+    border-width: 1px !important;
+  }
+
+  /* Shrink margins and paddings globally for high-density landscape grids */
+  .ops-container div[class*="mb-6"], 
+  .ops-container div[class*="mb-10"],
+  .ops-container div[class*="mb-8"] {
+    margin-bottom: 0.75rem !important;
+  }
+
+  .ops-container div[class*="pb-4"], 
+  .ops-container div[class*="pb-6"] {
+    padding-bottom: 0.5rem !important;
+  }
+
+  .ops-container div[class*="gap-4"], 
+  .ops-container div[class*="gap-6"],
+  .ops-container div[class*="gap-8"] {
+    gap: 0.5rem !important;
+  }
+
+  /* Shrink header elements to avoid consuming vertical space */
+  .ops-container h1 {
+    font-size: 1.25rem !important;
+  }
+
+  .ops-container h2 {
+    font-size: 1rem !important;
+  }
+
+  /* Keep display numbers clean and responsive */
+  .ops-container .text-4xl, 
+  .ops-container .text-5xl, 
+  .ops-container .text-6xl, 
+  .ops-container .text-7xl, 
+  .ops-container .text-8xl {
+    font-size: 2.25rem !important; 
+    line-height: 1.1 !important;
+  }
+
+  /* Scale icons inside headers */
+  .ops-container div[class*="w-10"][class*="h-10"], 
+  .ops-container div[class*="w-12"][class*="h-12"] {
+    width: 2rem !important;
+    height: 2rem !important;
+  }
+
+  .ops-container div[class*="w-10"][class*="h-10"] svg, 
+  .ops-container div[class*="w-12"][class*="h-12"] svg {
+    width: 1.25rem !important;
+    height: 1.25rem !important;
+  }
+
+  /* Grid adjustments for compact scrolling flow */
+  .ops-container .grid {
+    gap: 0.75rem !important;
+  }
+
+  /* Day columns & lists: allow full scrolling on the whole page rather than small inner scroll boxes */
+  .ops-container div[class*="overflow-hidden"],
+  .ops-container div[class*="md:overflow-hidden"] {
+    overflow: visible !important;
+  }
+
+  .ops-container div[class*="p-6"], 
+  .ops-container div[class*="p-8"], 
+  .ops-container div[class*="p-10"],
+  .ops-container form[class*="p-10"] {
+    padding: 1.25rem !important;
+  }
+
+  /* Align status bar and remove large gaps */
+  .ops-container div[class*="mt-auto"],
+  .ops-container div[class*="pt-6"],
+  .ops-container div[class*="pt-8"] {
+    margin-top: 1rem !important;
+    padding-top: 0.5rem !important;
+  }
+}
+
+

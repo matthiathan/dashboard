@@ -22,9 +22,21 @@ export default function VideoScreen({ onComplete }: VideoScreenProps) {
         muted
         playsInline
         onEnded={onComplete}
+        onError={onComplete}
       >
         <source src="/wireframe.mp4" type="video/mp4" />
       </video>
+
+      {/* Skip Button */}
+      <button 
+        onClick={(e) => {
+          e.stopPropagation();
+          onComplete();
+        }}
+        className="absolute top-6 right-6 z-30 px-3 py-1 bg-gold/10 border border-gold/30 hover:bg-gold/20 text-gold font-mono text-[9px] md:text-[10px] tracking-widest uppercase rounded cursor-pointer transition-all"
+      >
+        Skip
+      </button>
 
       {/* Interface Overlays */}
       <div className="absolute inset-0 pointer-events-none ring-[1px] ring-gold/20 inset-ring-inherit" />

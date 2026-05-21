@@ -4,9 +4,12 @@ import { AppScreen } from './types';
 import { supabase } from './lib/supabase';
 import VideoScreen from './components/VideoScreen';
 import OpsDeskScreen from './components/OpsDeskScreen';
+import CalendarScreen from './components/CalendarScreen';
 import ChronoScreen from './components/ChronoScreen';
+import WeatherScreen from './components/WeatherScreen';
+import TrafficScreen from './components/TrafficScreen';
 import AuthScreen from './components/AuthScreen';
-import { LogOut, Shield } from 'lucide-react';
+import { LogOut } from 'lucide-react';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>(AppScreen.VIDEO);
@@ -15,15 +18,56 @@ export default function App() {
   const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.warn('Session retrieval error (possibly invalid or expired refresh token):', error);
+        supabase.auth.signOut().catch(() => {});
+        setSession(null);
+        setIsInitializing(false);
+        setCurrentScreen(AppScreen.AUTH);
+        return;
+      }
       setSession(session);
       setIsInitializing(false);
+      if (session) {
+        const hasPlayed = localStorage.getItem(`opsportal_video_played_${session.user.id}`);
+        if (hasPlayed === 'true') {
+          setCurrentScreen(AppScreen.TASKS);
+        } else {
+          setCurrentScreen(AppScreen.VIDEO);
+        }
+      } else {
+        setCurrentScreen(AppScreen.AUTH);
+      }
+    }).catch((err) => {
+      console.warn('Unexpected session retrieval fail:', err);
+      supabase.auth.signOut().catch(() => {});
+      setSession(null);
+      setIsInitializing(false);
+      setCurrentScreen(AppScreen.AUTH);
     });
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      // If the session changed but has error, or is signed out
+      if (event === 'SIGNED_OUT') {
+        setSession(null);
+        setCurrentScreen(AppScreen.AUTH);
+        return;
+      }
+      
       setSession(session);
+      if (session) {
+        const hasPlayed = localStorage.getItem(`opsportal_video_played_${session.user.id}`);
+        if (hasPlayed === 'true') {
+          setCurrentScreen(AppScreen.TASKS);
+        } else {
+          setCurrentScreen(AppScreen.VIDEO);
+        }
+      } else {
+        setCurrentScreen(AppScreen.AUTH);
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -45,23 +89,38 @@ export default function App() {
     }
 
     setCurrentScreen((prev) => {
-      if (prev === AppScreen.VIDEO) return AppScreen.TASKS;
-      if (prev === AppScreen.TASKS) return AppScreen.ENVIRONMENT;
+      if (prev === AppScreen.VIDEO) {
+        localStorage.setItem(`opsportal_video_played_${session.user.id}`, 'true');
+        return AppScreen.TASKS;
+      }
+      if (prev === AppScreen.TASKS) return AppScreen.CALENDAR;
+      if (prev === AppScreen.CALENDAR) return AppScreen.CHRONO;
+      if (prev === AppScreen.CHRONO) return AppScreen.WEATHER;
+      if (prev === AppScreen.WEATHER) return AppScreen.TRAFFIC;
+      if (prev === AppScreen.TRAFFIC) return AppScreen.TASKS;
       if (prev === AppScreen.AUTH) return AppScreen.VIDEO;
-      return AppScreen.VIDEO;
+      return AppScreen.TASKS;
     });
   }, [session]);
 
+  const getScreenDuration = (screen: AppScreen) => {
+    return screen === AppScreen.CHRONO ? 20 : 10;
+  };
+
   const handleLogout = async () => {
+    if (session) {
+      localStorage.removeItem(`opsportal_video_played_${session.user.id}`);
+    }
     await supabase.auth.signOut();
     setCurrentScreen(AppScreen.AUTH);
   };
 
   useEffect(() => {
-    if (session && (currentScreen === AppScreen.TASKS || currentScreen === AppScreen.ENVIRONMENT)) {
+    if (session && currentScreen !== AppScreen.VIDEO && currentScreen !== AppScreen.AUTH) {
+      const delay = getScreenDuration(currentScreen) * 1000;
       const timer = setTimeout(() => {
         nextScreen();
-      }, 10000); // 10 seconds
+      }, delay);
       return () => clearTimeout(timer);
     }
   }, [currentScreen, nextScreen, session]);
@@ -108,10 +167,23 @@ export default function App() {
             <OpsDeskScreen />
           </motion.div>
         );
-      case AppScreen.ENVIRONMENT:
+      case AppScreen.CALENDAR:
         return (
           <motion.div
-            key="environment"
+            key="calendar"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1 }}
+            className="w-full h-full"
+          >
+            <CalendarScreen />
+          </motion.div>
+        );
+      case AppScreen.CHRONO:
+        return (
+          <motion.div
+            key="chrono"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -119,6 +191,32 @@ export default function App() {
             className="w-full h-full"
           >
             <ChronoScreen />
+          </motion.div>
+        );
+      case AppScreen.WEATHER:
+        return (
+          <motion.div
+            key="weather"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1 }}
+            className="w-full h-full"
+          >
+            <WeatherScreen />
+          </motion.div>
+        );
+      case AppScreen.TRAFFIC:
+        return (
+          <motion.div
+            key="traffic"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1 }}
+            className="w-full h-full"
+          >
+            <TrafficScreen />
           </motion.div>
         );
       case AppScreen.AUTH:
@@ -142,53 +240,52 @@ export default function App() {
       className="landscape-lock w-full min-h-screen md:h-screen md:w-screen bg-charcoal overflow-x-hidden md:overflow-hidden"
     >
       <div className="ops-container relative min-h-screen md:h-full flex flex-col p-4 md:p-6 pb-12 md:pb-6">
-        {session && (
-          <div className="relative md:absolute md:top-6 md:right-6 mb-4 md:mb-0 z-50 flex flex-row items-center justify-between md:justify-end gap-3 w-full md:w-auto self-end md:self-auto">
-            <div className="px-2 md:px-3 py-1 bg-gold/10 border border-gold/20 rounded flex items-center gap-1.5 md:gap-2 min-w-0">
-              <Shield className="w-3 h-3 text-gold shrink-0" />
-              <span className="text-[9px] md:text-[10px] text-white/70 font-mono tracking-tighter uppercase truncate max-w-[150px] sm:max-w-none">{session.user.email}</span>
+        <AnimatePresence mode="wait">
+          {renderScreen()}
+        </AnimatePresence>
+
+        {/* Bottom Bar: System Status Bar + Handled Exit Button on the right */}
+        <div className="mt-auto pt-4 md:pt-6 flex flex-row items-center justify-between gap-4 md:gap-6 shrink-0 min-h-[36px]">
+          {/* Status section */}
+          <div className="flex-1 flex items-center gap-4 md:gap-6 opacity-35 min-w-0">
+            <div className="text-[8px] md:text-[10px] font-bold uppercase tracking-widest text-gold whitespace-nowrap shrink-0">System Live</div>
+            <div className="flex-1 h-0.5 bg-white/5 relative overflow-hidden hidden xs:block">
+              <motion.div 
+                initial={{ x: "-100%" }}
+                animate={{ x: "0%" }}
+                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                className="absolute top-0 left-0 h-full bg-gold w-1/3"
+              />
             </div>
+            <div className="text-[8px] md:text-[10px] font-mono text-gray-400 tabular-nums uppercase truncate">
+              {session ? currentScreen : 'AUTH'} NODE [00:02s]
+            </div>
+          </div>
+
+          {/* Clean, professional Exit Node button in the bottom right corner */}
+          {session && (
             <button 
               onClick={(e) => {
                 e.stopPropagation();
                 handleLogout();
               }}
-              className="p-1.5 md:p-2 bg-red-900/20 border border-red-900/30 text-red-500 hover:bg-red-900/40 transition-colors rounded cursor-pointer shrink-0"
-              title="Logout"
+              className="z-50 px-2.5 py-1.5 bg-red-950/30 hover:bg-red-900/30 border border-red-900/40 hover:border-red-500/50 text-red-400 hover:text-red-300 transition-all duration-200 rounded flex items-center gap-1.5 text-[9px] sm:text-[10px] font-bold tracking-wider uppercase shadow-lg shadow-black/20 cursor-pointer shrink-0"
+              title="Exit Operations Node"
             >
-              <LogOut className="w-3.5 h-3.5 md:w-4 md:h-4" />
+              <span>Exit Node</span>
+              <LogOut className="w-3 h-3 text-red-500 shrink-0" />
             </button>
-          </div>
-        )}
-
-        <AnimatePresence mode="wait">
-          {renderScreen()}
-        </AnimatePresence>
-
-        {/* System Status Bar */}
-        <div className="mt-auto pt-6 md:pt-8 flex items-center gap-4 md:gap-6 opacity-30">
-          <div className="text-[8px] md:text-[10px] font-bold uppercase tracking-widest text-gold whitespace-nowrap">System Live</div>
-          <div className="flex-1 h-0.5 bg-white/5 relative overflow-hidden">
-            <motion.div 
-              initial={{ x: "-100%" }}
-              animate={{ x: "0%" }}
-              transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-              className="absolute top-0 left-0 h-full bg-gold w-1/3"
-            />
-          </div>
-          <div className="text-[8px] md:text-[10px] font-mono text-gray-500 tabular-nums uppercase">
-            {session ? currentScreen : 'AUTH'} NODE [00:0{Math.floor(Math.random() * 9)}s]
-          </div>
+          )}
         </div>
 
         {/* Global Progress Line */}
         {session && (
-          <div className="absolute bottom-0 left-0 w-full h-1 bg-gold/20">
+          <div className="absolute bottom-0 left-0 w-full h-1 bg-gold/20 flex z-50">
             <motion.div 
               key={currentScreen}
               initial={{ width: "0%" }}
               animate={{ width: "100%" }}
-              transition={{ duration: 10, ease: "linear" }}
+              transition={{ duration: getScreenDuration(currentScreen), ease: "linear" }}
               className="h-full bg-gold"
             />
           </div>

@@ -12,7 +12,10 @@ export interface Task {
 export enum AppScreen {
   VIDEO = 'VIDEO',
   TASKS = 'TASKS',
-  ENVIRONMENT = 'ENVIRONMENT',
+  CALENDAR = 'CALENDAR',
+  CHRONO = 'CHRONO',
+  WEATHER = 'WEATHER',
+  TRAFFIC = 'TRAFFIC',
   AUTH = 'AUTH'
 }
 

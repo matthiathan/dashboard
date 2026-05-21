@@ -13,9 +13,13 @@ export default function OpsDeskScreen() {
     const fetchTasks = async () => {
       try {
         setLoading(true);
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
-        if (!session) {
+        if (sessionError || !session) {
+          if (sessionError) {
+            console.warn('OpsDesk session error:', sessionError);
+            await supabase.auth.signOut().catch(() => {});
+          }
           throw new Error('No authenticated operational session found. Please login.');
         }
 
@@ -76,25 +80,7 @@ export default function OpsDeskScreen() {
   };
 
   return (
-    <div className="w-full h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-baseline border-b border-gold/40 md:border-b-2 md:border-gold pb-4 md:pb-6 mb-6 md:mb-10">
-        <div className="flex items-center gap-3 md:gap-4">
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-gold flex items-center justify-center rounded-sm shrink-0">
-            <ListTodo className="w-6 h-6 md:w-8 md:h-8 text-charcoal" />
-          </div>
-          <div>
-            <h1 className="text-xl md:text-3xl font-bold tracking-tighter text-gold uppercase">
-              TASKFLOW <span className="font-light opacity-80 text-white">OPSPORTAL</span>
-            </h1>
-            <p className="text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase opacity-50">Dallmayr Operations Hub</p>
-          </div>
-        </div>
-        <div className="text-left sm:text-right">
-          <div className="text-lg md:text-xl font-mono text-gold/80 italic">v2.4.0</div>
-          <div className="text-[9px] md:text-[10px] text-gray-500 font-mono tracking-widest uppercase">Authorized Access Only</div>
-        </div>
-      </div>
-
+    <div className="w-full h-full flex flex-col pt-1">
       <div className="flex-1 flex flex-col gap-4 md:gap-6 overflow-y-auto md:overflow-hidden">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
           <h2 className="text-lg md:text-xl font-semibold border-l-4 border-gold pl-3 md:pl-4 uppercase tracking-wider">Active Operations Desk</h2>

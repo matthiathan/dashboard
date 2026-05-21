@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react';
-import { Sun, Cloud, CloudRain, CloudLightning, Wind, Thermometer, MapPin } from 'lucide-react';
-
-interface WeatherInfo {
-  temp: number;
-  code: number;
-}
+import { Compass, Clock, Globe2 } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export default function ChronoScreen() {
   const [time, setTime] = useState(new Date());
-  const [weather, setWeather] = useState<WeatherInfo | null>(null);
 
+  // Tick clock
   useEffect(() => {
     const timer = setInterval(() => {
       setTime(new Date());
@@ -17,139 +13,205 @@ export default function ChronoScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  useEffect(() => {
-    const fetchWeather = async () => {
-      try {
-        const res = await fetch(
-          'https://api.open-meteo.com/v1/forecast?latitude=-25.9964&longitude=28.1306&current_weather=true'
-        );
-        const data = await res.json();
-        setWeather({
-          temp: data.current_weather.temperature,
-          code: data.current_weather.weathercode,
-        });
-      } catch (err) {
-        console.error('Weather fetch failed', err);
-      }
-    };
-
-    fetchWeather();
-    const weatherTimer = setInterval(fetchWeather, 300000); // 5 mins
-    return () => clearInterval(weatherTimer);
-  }, []);
-
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-ZA', {
-      weekday: 'long',
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      timeZone: 'Africa/Johannesburg'
-    }).toUpperCase();
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-ZA', {
+  const formatZonetime = (date: Date, timeZone: string) => {
+    return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
-      timeZone: 'Africa/Johannesburg'
+      timeZone
     });
   };
 
-  const getWeatherIcon = (code: number) => {
-    if (code === 0) return <Sun className="w-16 h-16 text-yellow-400" />;
-    if (code <= 3) return <Cloud className="w-16 h-16 text-gray-400" />;
-    if (code <= 67) return <CloudRain className="w-16 h-16 text-blue-400" />;
-    if (code <= 99) return <CloudLightning className="w-16 h-16 text-purple-400" />;
-    return <Wind className="w-16 h-16 text-white" />;
+  const formatZoneDate = (date: Date, timeZone: string) => {
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      timeZone
+    }).toUpperCase();
   };
 
-  const getWeatherLabel = (code: number) => {
-    if (code === 0) return 'CLEAR SKIES';
-    if (code <= 3) return 'PARTLY CLOUDY';
-    if (code <= 67) return 'PRECIPITATION';
-    if (code <= 99) return 'ELECTRICAL STORM';
-    return 'UNCERTAIN';
+  const getZoneHMS = (date: Date, timeZone: string) => {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      hour12: false,
+      timeZone
+    });
+    const parts = formatter.formatToParts(date);
+    const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0', 10);
+    const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0', 10);
+    const second = parseInt(parts.find(p => p.type === 'second')?.value || '0', 10);
+    return { hour, minute, second };
   };
+
+  const zones = [
+    {
+      id: 'sast',
+      title: 'South Africa (MSY)',
+      region: 'SAST — Midrand Gateway',
+      timeZone: 'Africa/Johannesburg',
+      color: 'border-gold text-gold bg-gold/5',
+      accent: 'text-gold-accent',
+      accentHex: '#E6AF2E',
+      flag: 'ZA'
+    },
+    {
+      id: 'cet',
+      title: 'Germany (HQ)',
+      region: 'CET/CEST — Munich Sector',
+      timeZone: 'Europe/Berlin',
+      color: 'border-blue-500 text-blue-400 bg-blue-500/5',
+      accent: 'text-blue-400',
+      accentHex: '#60A5FA',
+      flag: 'DE'
+    },
+    {
+      id: 'gst',
+      title: 'Dubai Office',
+      region: 'GST — Jumeirah Cluster',
+      timeZone: 'Asia/Dubai',
+      color: 'border-purple-500 text-purple-400 bg-purple-500/5',
+      accent: 'text-purple-400',
+      accentHex: '#C084FC',
+      flag: 'AE'
+    }
+  ];
 
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-baseline border-b border-gold/40 md:border-b-2 md:border-gold pb-4 md:pb-6 mb-6 md:mb-10">
-        <div className="flex items-center gap-3 md:gap-4">
-          <div className="w-10 h-10 md:w-12 md:h-12 bg-gold flex items-center justify-center rounded-sm shrink-0">
-            <svg viewBox="0 0 24 24" className="w-5 h-5 md:w-8 md:h-8 text-charcoal" fill="currentColor">
-              <path d="M21 16.5C21 16.88 20.79 17.21 20.47 17.38L12.57 21.82C12.41 21.94 12.21 22 12 22C11.79 22 11.59 21.94 11.43 21.82L3.53 17.38C3.21 17.21 3 16.88 3 16.5V7.5C3 7.12 3.21 6.79 3.53 6.62L11.43 2.18C11.59 2.06 11.79 2 12 2C12.21 2 12.41 2.06 12.57 2.18L20.47 6.62C20.79 6.79 21 7.12 21 7.5V16.5Z"/>
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-xl md:text-3xl font-bold tracking-tighter text-gold uppercase">
-              TASKFLOW <span className="font-light opacity-80 text-white">OPSPORTAL</span>
-            </h1>
-            <p className="text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase opacity-50">Dallmayr Operations Hub</p>
-          </div>
-        </div>
-        <div className="text-left sm:text-right"> 
-          <div className="text-2xl md:text-5xl font-light tracking-tight text-gold tabular-nums">{formatTime(time)}</div>
-          <div className="text-[9px] md:text-[10px] tracking-widest uppercase opacity-60">SAST — MIDRAND, GAUTENG</div>
-        </div>
-      </div>
+      {/* Grid of Analog Clocks - Always side-by-side using 3 columns */}
+      <div className="flex-1 grid grid-cols-3 gap-3 sm:gap-4 md:gap-6 overflow-y-auto pb-4">
+        {zones.map((zone, idx) => {
+          const { hour, minute, second } = getZoneHMS(time, zone.timeZone);
+          const zoneTimeStr = formatZonetime(time, zone.timeZone);
+          const zoneDateStr = formatZoneDate(time, zone.timeZone);
 
-      <div className="flex-1 flex flex-col lg:flex-row gap-6 lg:gap-10 overflow-y-auto lg:overflow-hidden pr-1 lg:pr-2 pb-4">
-        <div className="flex-1 flex flex-col gap-4 md:gap-6 justify-center py-4 lg:py-0">
-            <div className="flex items-center gap-2 text-gold/60 mb-2 md:mb-6">
-              <span className="h-px w-8 md:w-12 bg-gold/40" />
-              <span className="text-[8px] md:text-[10px] tracking-[0.4em] font-mono uppercase">Precision Chronometry</span>
-            </div>
-            <h2 className="text-4xl sm:text-6xl md:text-7xl lg:text-[8rem] font-display font-light leading-none tracking-tighter text-white tabular-nums my-2">
-              {formatTime(time)}
-            </h2>
-            <div className="flex flex-col mt-2">
-              <span className="text-lg sm:text-xl md:text-2xl font-display text-gold/80 tracking-wide md:tracking-widest">{formatDate(time)}</span>
-              <span className="text-[9px] md:text-xs font-mono text-white/20 mt-1 uppercase">Precision Node: Midrand Observatory</span>
-            </div>
-        </div>
-
-        <div className="w-full lg:w-80 flex flex-col gap-6 shrink-0 mt-4 lg:mt-0">
-          <div className="bg-charcoal-elevated p-6 md:p-8 rounded-lg border border-white/5 flex-1 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden min-h-[300px]">
-            <div className="absolute top-0 left-0 w-full h-1 bg-gold/30" />
-            
-            <div className="text-gold mb-4 md:mb-6">
-              {weather ? getWeatherIcon(weather.code) : <Thermometer className="w-12 h-12 md:w-16 md:h-16 animate-pulse" />}
-            </div>
-            
-            {weather ? (
-              <>
-                <div className="text-4xl md:text-6xl font-extralight mb-1 md:mb-2 text-white">
-                  {Math.round(weather.temp)}<span className="text-2xl md:text-3xl text-gold">°C</span>
+          const secondDeg = second * 6;
+          const minuteDeg = minute * 6 + second * 0.1;
+          const hourDeg = (hour % 12) * 30 + minute * 0.5;
+          
+          return (
+            <motion.div
+              key={zone.id}
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: idx * 0.08 }}
+              className={`flex flex-col justify-between bg-charcoal-elevated/90 border rounded-xl p-3 sm:p-5 relative overflow-hidden shadow-2xl transition-all duration-300 ${
+                zone.id === 'sast' ? 'border-gold/30 bg-gold/[0.01]' : 'border-white/5'
+              }`}
+            >
+              {/* Outer light indicators */}
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+              
+              {/* Card Header */}
+              <div className="flex justify-between items-center border-b border-white/5 pb-2">
+                <div className="flex items-center gap-1 sm:gap-2 min-w-0">
+                  <Globe2 className={`w-3.5 h-3.5 ${zone.accent} shrink-0`} />
+                  <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider truncate">
+                    {zone.id === 'sast' ? 'S. Africa' : zone.id === 'cet' ? 'Germany' : 'Dubai'}
+                  </span>
                 </div>
-                <div className="text-sm md:text-lg font-medium text-gold uppercase tracking-widest mb-1">
-                  {getWeatherLabel(weather.code)}
-                </div>
-                <div className="text-[9px] md:text-[10px] text-gray-500 uppercase tracking-widest">HUMIDITY: 64% | WIND: 12KM/H</div>
-              </>
-            ) : (
-              <div className="flex flex-col items-center gap-2">
-                <div className="w-8 h-8 rounded-full border-2 border-gold/20 border-t-gold animate-spin" />
-                <span className="text-[8px] font-mono text-white/20 tracking-widest">FETCHING DATA...</span>
+                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-gray-400 font-bold shrink-0">
+                  {zone.flag}
+                </span>
               </div>
-            )}
 
-            <div className="w-full h-[1px] bg-white/10 my-6 md:my-8"></div>
-            
-            <div className="text-[9px] md:text-[10px] text-gray-500 uppercase tracking-[0.2em] mb-3 md:mb-4">Core Telemetry</div>
-            <div className="flex items-center gap-3 w-full p-2 md:p-3 bg-black/40 rounded border border-white/5">
-              <div className="w-8 h-8 md:w-10 md:h-10 bg-gold/10 rounded flex items-center justify-center border border-gold/20 shrink-0">
-                <MapPin className="w-4 md:w-5 md:h-5 text-gold" />
+              {/* SVG Analog Clock Section */}
+              <div className="flex-1 flex items-center justify-center my-3 sm:my-5 min-h-[90px] md:min-h-[140px]">
+                <div className="relative w-24 h-24 sm:w-28 sm:h-28 md:w-36 md:h-36 max-w-full">
+                  <svg width="100%" height="100%" viewBox="0 0 100 100">
+                    {/* Clock Face */}
+                    <circle cx="50" cy="50" r="46" fill="rgba(0,0,0,0.4)" stroke="currentColor" className="text-white/10" strokeWidth="2.5" />
+                    <circle cx="50" cy="50" r="46" fill="none" stroke={zone.accentHex} strokeWidth="1" className="opacity-10" strokeDasharray="1 3" />
+                    
+                    {/* Hour Markings (12 ticks) */}
+                    {[...Array(12)].map((_, i) => {
+                      const angle = (i * 30 * Math.PI) / 180;
+                      const isQuarter = i % 3 === 0;
+                      const rStart = isQuarter ? 37 : 40;
+                      const rEnd = 43;
+                      const x1 = 50 + rStart * Math.sin(angle);
+                      const y1 = 50 - rStart * Math.cos(angle);
+                      const x2 = 50 + rEnd * Math.sin(angle);
+                      const y2 = 50 - rEnd * Math.cos(angle);
+                      
+                      return (
+                        <line
+                          key={i}
+                          x1={x1}
+                          y1={y1}
+                          x2={x2}
+                          y2={y2}
+                          stroke={isQuarter ? zone.accentHex : '#FFFFFF'}
+                          strokeWidth={isQuarter ? '1.5' : '0.75'}
+                          className={isQuarter ? 'opacity-85' : 'opacity-25'}
+                        />
+                      );
+                    })}
+
+                    {/* Hour Hand */}
+                    <line
+                      x1="50"
+                      y1="50"
+                      x2={50 + 22 * Math.sin((hourDeg * Math.PI) / 180)}
+                      y2={50 - 22 * Math.cos((hourDeg * Math.PI) / 180)}
+                      stroke="#FFFFFF"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                    />
+
+                    {/* Minute Hand */}
+                    <line
+                      x1="50"
+                      y1="50"
+                      x2={50 + 32 * Math.sin((minuteDeg * Math.PI) / 180)}
+                      y2={50 - 32 * Math.cos((minuteDeg * Math.PI) / 180)}
+                      stroke="#E5E7EB"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      className="opacity-90"
+                    />
+
+                    {/* Second Hand */}
+                    <line
+                      x1="50"
+                      y1="50"
+                      x2={50 + 38 * Math.sin((secondDeg * Math.PI) / 180)}
+                      y2={50 - 38 * Math.cos((secondDeg * Math.PI) / 180)}
+                      stroke="#EF4444"
+                      strokeWidth="1"
+                      strokeLinecap="round"
+                    />
+
+                    {/* Center dots/connections */}
+                    <circle cx="50" cy="50" r="3.5" fill={zone.accentHex} />
+                    <circle cx="50" cy="50" r="1.2" fill="#000000" />
+                  </svg>
+                </div>
               </div>
-              <div className="text-left">
-                <div className="text-[9px] md:text-[10px] font-bold text-white uppercase leading-tight">Midrand Hub</div>
-                <div className="text-[8px] md:text-[9px] text-gray-600 uppercase">Sector 2.4 - North Gateway</div>
+
+              {/* Date Elements and Digital representation underneath */}
+              <div className="border-t border-white/5 pt-2 text-center flex flex-col gap-1">
+                {/* Short Digital Representation */}
+                <span className="font-mono text-xs sm:text-sm font-bold tracking-tight text-white/50">
+                  {zoneTimeStr.slice(0, 5)}
+                  <span className="text-[9px] text-gray-500 font-normal ml-1">
+                    {zoneTimeStr.slice(6, 8)}
+                  </span>
+                </span>
+                
+                {/* Full Date Underneath */}
+                <span className={`text-[8px] sm:text-[10px] md:text-sm font-bold tracking-wide leading-tight truncate ${zone.accent}`}>
+                  {zoneDateStr.replace(', 2026', '')}
+                </span>
               </div>
-            </div>
-          </div>
-        </div>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );
