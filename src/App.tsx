@@ -9,6 +9,7 @@ import ChronoScreen from './components/ChronoScreen';
 import WeatherScreen from './components/WeatherScreen';
 import TrafficScreen from './components/TrafficScreen';
 import AuthScreen from './components/AuthScreen';
+import DashboardScreen from './components/DashboardScreen';
 import { LogOut } from 'lucide-react';
 
 export default function App() {
@@ -32,7 +33,7 @@ export default function App() {
       if (session) {
         const hasPlayed = localStorage.getItem(`opsportal_video_played_${session.user.id}`);
         if (hasPlayed === 'true') {
-          setCurrentScreen(AppScreen.TASKS);
+          setCurrentScreen(AppScreen.DASHBOARD);
         } else {
           setCurrentScreen(AppScreen.VIDEO);
         }
@@ -50,7 +51,6 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, session) => {
-      // If the session changed but has error, or is signed out
       if (event === 'SIGNED_OUT') {
         setSession(null);
         setCurrentScreen(AppScreen.AUTH);
@@ -61,7 +61,7 @@ export default function App() {
       if (session) {
         const hasPlayed = localStorage.getItem(`opsportal_video_played_${session.user.id}`);
         if (hasPlayed === 'true') {
-          setCurrentScreen(AppScreen.TASKS);
+          setCurrentScreen(AppScreen.DASHBOARD);
         } else {
           setCurrentScreen(AppScreen.VIDEO);
         }
@@ -73,15 +73,6 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen().catch((e) => {
-        console.warn(`Error attempting to enable full-screen mode: ${e.message}`);
-      });
-      setIsFullscreen(true);
-    }
-  }, []);
-
   const nextScreen = useCallback(() => {
     if (!session) {
       setCurrentScreen(AppScreen.AUTH);
@@ -91,15 +82,16 @@ export default function App() {
     setCurrentScreen((prev) => {
       if (prev === AppScreen.VIDEO) {
         localStorage.setItem(`opsportal_video_played_${session.user.id}`, 'true');
-        return AppScreen.TASKS;
+        return AppScreen.DASHBOARD;
       }
+      if (prev === AppScreen.DASHBOARD) return AppScreen.TASKS;
       if (prev === AppScreen.TASKS) return AppScreen.CALENDAR;
       if (prev === AppScreen.CALENDAR) return AppScreen.CHRONO;
       if (prev === AppScreen.CHRONO) return AppScreen.WEATHER;
       if (prev === AppScreen.WEATHER) return AppScreen.TRAFFIC;
-      if (prev === AppScreen.TRAFFIC) return AppScreen.TASKS;
+      if (prev === AppScreen.TRAFFIC) return AppScreen.DASHBOARD; // loop back to first screen (Dashboard / Command Grid)
       if (prev === AppScreen.AUTH) return AppScreen.VIDEO;
-      return AppScreen.TASKS;
+      return AppScreen.DASHBOARD;
     });
   }, [session]);
 
@@ -115,15 +107,20 @@ export default function App() {
     setCurrentScreen(AppScreen.AUTH);
   };
 
+  // Automatically cycle through different screens every 10 seconds, ONLY when Full Screen mode is active.
   useEffect(() => {
-    if (session && currentScreen !== AppScreen.VIDEO && currentScreen !== AppScreen.AUTH) {
-      const delay = getScreenDuration(currentScreen) * 1000;
+    if (
+      session && 
+      isFullscreen &&
+      currentScreen !== AppScreen.VIDEO && 
+      currentScreen !== AppScreen.AUTH
+    ) {
       const timer = setTimeout(() => {
         nextScreen();
-      }, delay);
+      }, 10000); // 10 seconds auto-rotation interval
       return () => clearTimeout(timer);
     }
-  }, [currentScreen, nextScreen, session]);
+  }, [currentScreen, nextScreen, session, isFullscreen]);
 
   const renderScreen = () => {
     if (!session) {
@@ -152,6 +149,22 @@ export default function App() {
             className="w-full h-full"
           >
             <VideoScreen onComplete={nextScreen} />
+          </motion.div>
+        );
+      case AppScreen.DASHBOARD:
+        return (
+          <motion.div
+            key="dashboard"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 1 }}
+            className="w-full h-full"
+          >
+            <DashboardScreen 
+              isFullscreenMode={isFullscreen} 
+              onToggleFullscreenMode={() => setIsFullscreen(!isFullscreen)} 
+            />
           </motion.div>
         );
       case AppScreen.TASKS:
@@ -220,7 +233,6 @@ export default function App() {
           </motion.div>
         );
       case AppScreen.AUTH:
-        // Technically unreachable if session exists, but for safety:
         return <VideoScreen onComplete={nextScreen} />;
       default:
         return null;
@@ -239,31 +251,65 @@ export default function App() {
     <div 
       className="landscape-lock w-full min-h-screen md:h-screen md:w-screen bg-charcoal overflow-x-hidden md:overflow-hidden"
     >
-      <div className="ops-container relative min-h-screen md:h-full flex flex-col p-4 md:p-6 pb-12 md:pb-6">
-        <AnimatePresence mode="wait">
-          {renderScreen()}
-        </AnimatePresence>
-
-        {/* Bottom Bar: System Status Bar + Handled Exit Button on the right */}
-        <div className="mt-auto pt-4 md:pt-6 flex flex-row items-center justify-between gap-4 md:gap-6 shrink-0 min-h-[36px]">
-          {/* Status section */}
-          <div className="flex-1 flex items-center gap-4 md:gap-6 opacity-35 min-w-0">
-            <div className="text-[8px] md:text-[10px] font-bold uppercase tracking-widest text-gold whitespace-nowrap shrink-0">System Live</div>
-            <div className="flex-1 h-0.5 bg-white/5 relative overflow-hidden hidden xs:block">
-              <motion.div 
-                initial={{ x: "-100%" }}
-                animate={{ x: "0%" }}
-                transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-                className="absolute top-0 left-0 h-full bg-gold w-1/3"
-              />
-            </div>
-            <div className="text-[8px] md:text-[10px] font-mono text-gray-400 tabular-nums uppercase truncate">
-              {session ? currentScreen : 'AUTH'} NODE [00:02s]
-            </div>
+      <div className={`ops-container relative min-h-screen md:h-full flex flex-col transition-all duration-300 ${
+        isFullscreen ? 'p-0 border-0 md:p-0 md:border-0' : 'p-4 md:p-6 pb-12 md:pb-6'
+      }`}>
+        
+        {/* Navigation Tabs Header: Hidden when in full-screen or unauthenticated */}
+        {session && currentScreen !== AppScreen.VIDEO && !isFullscreen && (
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-4 border-b border-white/5 pb-2.5 shrink-0 z-40 overflow-x-auto no-scrollbar">
+            {[
+              { id: AppScreen.DASHBOARD, label: 'Command Grid' },
+              { id: AppScreen.TASKS, label: 'Tasks Desk' },
+              { id: AppScreen.CALENDAR, label: 'Operations Calendar' },
+              { id: AppScreen.CHRONO, label: 'Chrono Telemetry' },
+              { id: AppScreen.WEATHER, label: 'Weather Station' },
+              { id: AppScreen.TRAFFIC, label: 'Transit Dispatch' }
+            ].map((tab) => {
+              const isActive = currentScreen === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setCurrentScreen(tab.id)}
+                  className={`px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                    isActive 
+                      ? 'bg-gold/20 text-gold border border-gold/40 shadow-[0_0_8px_rgba(197,160,89,0.12)] font-black' 
+                      : 'bg-white/[0.02] border border-white/5 text-white/50 hover:bg-white/[0.05] hover:text-white/80'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
+        )}
 
-          {/* Clean, professional Exit Node button in the bottom right corner */}
-          {session && (
+        <div className="flex-1 min-h-0 relative">
+          <AnimatePresence mode="wait">
+            {renderScreen()}
+          </AnimatePresence>
+        </div>
+
+        {/* Bottom Bar: System Status Bar + Exit Button; Hidden when in full-screen */}
+        {session && currentScreen !== AppScreen.VIDEO && !isFullscreen && (
+          <div className="mt-auto pt-4 md:pt-6 flex flex-row items-center justify-between gap-4 md:gap-6 shrink-0 min-h-[36px]">
+            {/* Status section */}
+            <div className="flex-1 flex items-center gap-4 md:gap-6 opacity-35 min-w-0">
+              <div className="text-[8px] md:text-[10px] font-bold uppercase tracking-widest text-gold whitespace-nowrap shrink-0">System Live</div>
+              <div className="flex-1 h-0.5 bg-white/5 relative overflow-hidden hidden xs:block">
+                <motion.div 
+                  initial={{ x: "-100%" }}
+                  animate={{ x: "0%" }}
+                  transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
+                  className="absolute top-0 left-0 h-full bg-gold w-1/3"
+                />
+              </div>
+              <div className="text-[8px] md:text-[10px] font-mono text-gray-400 tabular-nums uppercase truncate">
+                {currentScreen} NODE [00:02s]
+              </div>
+            </div>
+
+            {/* Clean, professional Exit Node button in the bottom right corner */}
             <button 
               onClick={(e) => {
                 e.stopPropagation();
@@ -275,11 +321,11 @@ export default function App() {
               <span>Exit Node</span>
               <LogOut className="w-3 h-3 text-red-500 shrink-0" />
             </button>
-          )}
-        </div>
+          </div>
+        )}
 
-        {/* Global Progress Line */}
-        {session && (
+        {/* Global Progress Line - Hidden when on Dashboard, in fullscreen or unauthenticated */}
+        {session && currentScreen !== AppScreen.VIDEO && currentScreen !== AppScreen.DASHBOARD && !isFullscreen && (
           <div className="absolute bottom-0 left-0 w-full h-1 bg-gold/20 flex z-50">
             <motion.div 
               key={currentScreen}
@@ -294,4 +340,3 @@ export default function App() {
     </div>
   );
 }
-

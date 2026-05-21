@@ -11,6 +11,7 @@ export interface Task {
 
 export enum AppScreen {
   VIDEO = 'VIDEO',
+  DASHBOARD = 'DASHBOARD',
   TASKS = 'TASKS',
   CALENDAR = 'CALENDAR',
   CHRONO = 'CHRONO',
