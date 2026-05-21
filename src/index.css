@@ -16,27 +16,15 @@
 }
 
 .ops-container {
-  @apply w-full h-full p-10 flex flex-col overflow-hidden relative border-4 border-gold/20 font-sans;
+  @apply w-full min-h-screen md:h-full p-4 md:p-10 flex flex-col overflow-y-auto md:overflow-hidden relative border-2 md:border-4 border-gold/20 font-sans;
 }
 
 .landscape-lock {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  min-height: 100vh;
   position: relative;
-  overflow: hidden;
-}
-
-/* Fallback for portrait mode - rotate context */
-@media (orientation: portrait) {
-  .landscape-lock {
-    width: 100vh;
-    height: 100vw;
-    transform: rotate(90deg);
-    transform-origin: center center;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    translate: -50% -50%;
-  }
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
 }
 

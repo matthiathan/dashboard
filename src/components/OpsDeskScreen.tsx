@@ -15,17 +15,34 @@ export default function OpsDeskScreen() {
         setLoading(true);
         const { data: { session } } = await supabase.auth.getSession();
         
-        const response = await fetch('/api/tasks', {
-          headers: {
-            'Authorization': session ? `Bearer ${session.access_token}` : '',
-          }
+        if (!session) {
+          throw new Error('No authenticated operational session found. Please login.');
+        }
+
+        // Direct query to Supabase tasks table
+        const { data, error: dbError } = await supabase
+          .from('tasks')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (dbError) throw dbError;
+
+        const rawTasks = Array.isArray(data) ? data : [];
+
+        // Filter and get the pending and active tasks (status is not resolved/completed)
+        const activePendingTasks = rawTasks.filter((task: any) => {
+          const status = String(task.status || '').toLowerCase();
+          const isPendingOrActive = status === 'pending' || status === 'in_progress' || status === 'active' || status === '';
+          
+          // Role or user-specific mapping verification
+          const userIdMatches = !task.user_id || task.user_id === session.user.id;
+          const userRole = session.user.app_metadata?.role || session.user.user_metadata?.role;
+          const roleMatches = !task.role || !userRole || task.role === userRole;
+
+          return isPendingOrActive && userIdMatches && roleMatches;
         });
-        
-        if (!response.ok) throw new Error('Failed to fetch operations data');
-        const data = await response.json();
-        
-        const taskData = Array.isArray(data) ? data : (data.tasks || []);
-        setTasks(taskData.slice(0, 6)); 
+
+        setTasks(activePendingTasks.slice(0, 6)); 
         setError(null);
       } catch (err: any) {
         console.error('Task fetch error:', err);
@@ -60,40 +77,40 @@ export default function OpsDeskScreen() {
 
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="flex justify-between items-baseline border-b-2 border-gold pb-6 mb-10">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gold flex items-center justify-center rounded-sm">
-            <ListTodo className="w-8 h-8 text-charcoal" />
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-baseline border-b border-gold/40 md:border-b-2 md:border-gold pb-4 md:pb-6 mb-6 md:mb-10">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-gold flex items-center justify-center rounded-sm shrink-0">
+            <ListTodo className="w-6 h-6 md:w-8 md:h-8 text-charcoal" />
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tighter text-gold uppercase">
+            <h1 className="text-xl md:text-3xl font-bold tracking-tighter text-gold uppercase">
               TASKFLOW <span className="font-light opacity-80 text-white">OPSPORTAL</span>
             </h1>
-            <p className="text-[10px] tracking-[0.3em] uppercase opacity-50">Dallmayr Operations Hub</p>
+            <p className="text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase opacity-50">Dallmayr Operations Hub</p>
           </div>
         </div>
-        <div className="text-right">
-          <div className="text-xl font-mono text-gold/80 italic">v2.4.0</div>
-          <div className="text-[10px] text-gray-600 font-mono tracking-widest uppercase">Authorized Access Only</div>
+        <div className="text-left sm:text-right">
+          <div className="text-lg md:text-xl font-mono text-gold/80 italic">v2.4.0</div>
+          <div className="text-[9px] md:text-[10px] text-gray-500 font-mono tracking-widest uppercase">Authorized Access Only</div>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col gap-6 overflow-hidden">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="text-xl font-semibold border-l-4 border-gold pl-4 uppercase tracking-wider">Active Operations Desk</h2>
-          <div className="flex gap-2 text-[10px] font-bold uppercase">
+      <div className="flex-1 flex flex-col gap-4 md:gap-6 overflow-y-auto md:overflow-hidden">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+          <h2 className="text-lg md:text-xl font-semibold border-l-4 border-gold pl-3 md:pl-4 uppercase tracking-wider">Active Operations Desk</h2>
+          <div className="flex flex-wrap gap-1 md:gap-2 text-[9px] md:text-[10px] font-bold uppercase">
             {loading ? (
               <span className="px-2 py-1 bg-gold/10 text-gold/50 animate-pulse">Syncing...</span>
             ) : error ? (
               <span className="px-2 py-1 bg-red-900/30 text-red-500 border border-red-900 flex items-center gap-1">
-                <AlertTriangle className="w-3 h-3" /> API Offline
+                <AlertTriangle className="w-3 h-3" /> DB Offline
               </span>
             ) : (
               <>
-                <span className="px-2 py-1 bg-red-900/30 text-red-400 border border-red-900">
+                <span className="px-2 py-1 bg-red-900/30 text-red-400 border border-red-900/50">
                   {tasks.filter(t => t.priority === 'high').length} CRITICAL
                 </span>
-                <span className="px-2 py-1 bg-gold/20 text-gold border border-gold/40">
+                <span className="px-2 py-1 bg-gold/20 text-gold border border-gold/30">
                   {tasks.filter(t => t.status !== 'resolved').length} ACTIVE
                 </span>
               </>
@@ -102,46 +119,46 @@ export default function OpsDeskScreen() {
         </div>
         
         {loading ? (
-          <div className="flex-1 flex items-center justify-center">
-            <div className="w-12 h-12 border-4 border-gold/20 border-t-gold rounded-full animate-spin" />
+          <div className="flex-1 flex items-center justify-center p-8">
+            <div className="w-10 h-10 border-4 border-gold/20 border-t-gold rounded-full animate-spin" />
           </div>
         ) : error ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-red-950/20 rounded-xl border border-red-900/30">
-            <AlertTriangle className="w-12 h-12 text-red-500 mb-4" />
-            <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-tight">Data Synchronization Failed</h3>
-            <p className="text-gray-400 text-sm max-w-sm font-mono">Unable to connect to the remote TaskFlow node. Falling back to local redundant cache.</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 md:p-12 bg-red-950/20 rounded-xl border border-red-900/30">
+            <AlertTriangle className="w-10 h-10 text-red-500 mb-3" />
+            <h3 className="text-lg font-bold text-white mb-2 uppercase tracking-tight">Data Synchronization Failed</h3>
+            <p className="text-gray-400 text-xs max-w-sm font-mono">Unable to connect to the Supabase database. Please check your credentials or network status.</p>
           </div>
         ) : tasks.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center text-center p-12 bg-gold/5 rounded-xl border border-gold/10">
-            <CheckCircle2 className="w-12 h-12 text-gold/30 mb-4" />
-            <h3 className="text-xl font-bold text-white mb-2 uppercase tracking-tight">No Active Operations</h3>
-            <p className="text-gray-400 text-sm max-w-sm font-mono">Your personnel ID has no pending tasks in the current cluster. All systems are operating within normal parameters.</p>
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-6 md:p-12 bg-gold/5 rounded-xl border border-gold/10">
+            <CheckCircle2 className="w-10 h-10 text-gold/30 mb-3" />
+            <h3 className="text-lg font-bold text-white mb-2 uppercase tracking-tight">No Active Operations</h3>
+            <p className="text-gray-400 text-xs max-w-sm font-mono">Your personnel ID has no pending tasks in the current cluster.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-6 overflow-y-auto pr-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 overflow-y-auto pr-1 md:pr-2">
             {tasks.map((task, index) => (
               <motion.div
                 key={task.id || index}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: index * 0.1 }}
-                className={`bg-charcoal-elevated border-l-4 ${getPriorityBorder(task.priority)} p-6 rounded-r-lg shadow-xl`}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className={`bg-charcoal-elevated border-l-4 ${getPriorityBorder(task.priority)} p-4 md:p-6 rounded-r-lg shadow-xl`}
               >
-                <div className="flex justify-between items-start mb-4">
-                  <span className={`text-[10px] px-2 py-0.5 rounded font-bold uppercase ${getPriorityColor(task.priority)}`}>
+                <div className="flex justify-between items-start mb-3">
+                  <span className={`text-[9px] md:text-[10px] px-2 py-0.5 rounded font-bold uppercase ${getPriorityColor(task.priority)}`}>
                     {task.priority || 'Normal'} Priority
                   </span>
-                  <span className="text-[10px] text-gray-500 uppercase font-mono">ID: TF-{task.id?.toString().slice(-4) || 'XXXX'}</span>
+                  <span className="text-[9px] md:text-[10px] text-gray-500 uppercase font-mono">ID: TF-{task.id?.toString().slice(-4) || 'XXXX'}</span>
                 </div>
-                <h3 className="text-lg font-bold mb-2 text-white line-clamp-1">{task.title}</h3>
-                <p className="text-sm text-gray-400 leading-relaxed mb-4 line-clamp-2">{task.description}</p>
+                <h3 className="text-base md:text-lg font-bold mb-1 md:mb-2 text-white line-clamp-1">{task.title}</h3>
+                <p className="text-xs md:text-sm text-gray-400 leading-relaxed mb-3 md:mb-4 line-clamp-2">{task.description}</p>
                 
-                <div className="flex justify-between items-center pt-4 border-t border-white/5">
-                  <span className="text-xs text-gold font-semibold uppercase flex items-center gap-2">
+                <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                  <span className="text-xs text-gold font-semibold uppercase flex items-center gap-1.5">
                     <span className={`w-1.5 h-1.5 rounded-full ${task.status === 'resolved' ? 'bg-green-500' : 'bg-gold animate-pulse'}`} />
                     {(task.status || 'pending').replace('_', ' ')}
                   </span>
-                  <span className="text-[10px] text-gray-500 uppercase">Remote Cluster: Alpha</span>
+                  <span className="text-[9px] md:text-[10px] text-gray-500 uppercase">Remote Cluster: Alpha</span>
                 </div>
               </motion.div>
             ))}

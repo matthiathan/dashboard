@@ -76,58 +76,58 @@ export default function ChronoScreen() {
 
   return (
     <div className="w-full h-full flex flex-col">
-      <div className="flex justify-between items-baseline border-b-2 border-gold pb-6 mb-10">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-gold flex items-center justify-center rounded-sm">
-            <svg viewBox="0 0 24 24" className="w-8 h-8 text-charcoal" fill="currentColor">
+      <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-baseline border-b border-gold/40 md:border-b-2 md:border-gold pb-4 md:pb-6 mb-6 md:mb-10">
+        <div className="flex items-center gap-3 md:gap-4">
+          <div className="w-10 h-10 md:w-12 md:h-12 bg-gold flex items-center justify-center rounded-sm shrink-0">
+            <svg viewBox="0 0 24 24" className="w-5 h-5 md:w-8 md:h-8 text-charcoal" fill="currentColor">
               <path d="M21 16.5C21 16.88 20.79 17.21 20.47 17.38L12.57 21.82C12.41 21.94 12.21 22 12 22C11.79 22 11.59 21.94 11.43 21.82L3.53 17.38C3.21 17.21 3 16.88 3 16.5V7.5C3 7.12 3.21 6.79 3.53 6.62L11.43 2.18C11.59 2.06 11.79 2 12 2C12.21 2 12.41 2.06 12.57 2.18L20.47 6.62C20.79 6.79 21 7.12 21 7.5V16.5Z"/>
             </svg>
           </div>
           <div>
-            <h1 className="text-3xl font-bold tracking-tighter text-gold uppercase">
+            <h1 className="text-xl md:text-3xl font-bold tracking-tighter text-gold uppercase">
               TASKFLOW <span className="font-light opacity-80 text-white">OPSPORTAL</span>
             </h1>
-            <p className="text-[10px] tracking-[0.3em] uppercase opacity-50">Dallmayr Operations Hub</p>
+            <p className="text-[9px] md:text-[10px] tracking-[0.2em] md:tracking-[0.3em] uppercase opacity-50">Dallmayr Operations Hub</p>
           </div>
         </div>
-        <div className="text-right"> 
-          <div className="text-5xl font-light tracking-tight text-gold tabular-nums">{formatTime(time)}</div>
-          <div className="text-[10px] tracking-widest uppercase opacity-60">SAST — MIDRAND, GAUTENG</div>
+        <div className="text-left sm:text-right"> 
+          <div className="text-2xl md:text-5xl font-light tracking-tight text-gold tabular-nums">{formatTime(time)}</div>
+          <div className="text-[9px] md:text-[10px] tracking-widest uppercase opacity-60">SAST — MIDRAND, GAUTENG</div>
         </div>
       </div>
 
-      <div className="flex-1 flex gap-10 overflow-hidden">
-        <div className="flex-1 flex flex-col gap-6 justify-center">
-            <div className="flex items-center gap-2 text-gold/60 mb-8">
-              <span className="h-px w-12 bg-gold/40" />
-              <span className="text-[10px] tracking-[0.4em] font-mono uppercase">Precision Chronometry</span>
+      <div className="flex-1 flex flex-col lg:flex-row gap-6 lg:gap-10 overflow-y-auto lg:overflow-hidden pr-1 lg:pr-2 pb-4">
+        <div className="flex-1 flex flex-col gap-4 md:gap-6 justify-center py-4 lg:py-0">
+            <div className="flex items-center gap-2 text-gold/60 mb-2 md:mb-6">
+              <span className="h-px w-8 md:w-12 bg-gold/40" />
+              <span className="text-[8px] md:text-[10px] tracking-[0.4em] font-mono uppercase">Precision Chronometry</span>
             </div>
-            <h2 className="text-[8rem] font-display font-light leading-none tracking-tighter text-white tabular-nums">
+            <h2 className="text-4xl sm:text-6xl md:text-7xl lg:text-[8rem] font-display font-light leading-none tracking-tighter text-white tabular-nums my-2">
               {formatTime(time)}
             </h2>
-            <div className="flex flex-col mt-4">
-              <span className="text-2xl font-display text-gold/80 tracking-widest">{formatDate(time)}</span>
-              <span className="text-xs font-mono text-white/20 mt-2 uppercase">Precision Node: Midrand Observatory</span>
+            <div className="flex flex-col mt-2">
+              <span className="text-lg sm:text-xl md:text-2xl font-display text-gold/80 tracking-wide md:tracking-widest">{formatDate(time)}</span>
+              <span className="text-[9px] md:text-xs font-mono text-white/20 mt-1 uppercase">Precision Node: Midrand Observatory</span>
             </div>
         </div>
 
-        <div className="w-80 flex flex-col gap-6">
-          <div className="bg-charcoal-elevated p-8 rounded-lg border border-white/5 flex-1 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden">
+        <div className="w-full lg:w-80 flex flex-col gap-6 shrink-0 mt-4 lg:mt-0">
+          <div className="bg-charcoal-elevated p-6 md:p-8 rounded-lg border border-white/5 flex-1 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden min-h-[300px]">
             <div className="absolute top-0 left-0 w-full h-1 bg-gold/30" />
             
-            <div className="text-gold mb-6">
-              {weather ? getWeatherIcon(weather.code) : <Thermometer className="w-16 h-16 animate-pulse" />}
+            <div className="text-gold mb-4 md:mb-6">
+              {weather ? getWeatherIcon(weather.code) : <Thermometer className="w-12 h-12 md:w-16 md:h-16 animate-pulse" />}
             </div>
             
             {weather ? (
               <>
-                <div className="text-6xl font-extralight mb-2 text-white">
-                  {Math.round(weather.temp)}<span className="text-3xl text-gold">°C</span>
+                <div className="text-4xl md:text-6xl font-extralight mb-1 md:mb-2 text-white">
+                  {Math.round(weather.temp)}<span className="text-2xl md:text-3xl text-gold">°C</span>
                 </div>
-                <div className="text-lg font-medium text-gold uppercase tracking-widest mb-1">
+                <div className="text-sm md:text-lg font-medium text-gold uppercase tracking-widest mb-1">
                   {getWeatherLabel(weather.code)}
                 </div>
-                <div className="text-[10px] text-gray-500 uppercase tracking-widest">HUMIDITY: 64% | WIND: 12KM/H</div>
+                <div className="text-[9px] md:text-[10px] text-gray-500 uppercase tracking-widest">HUMIDITY: 64% | WIND: 12KM/H</div>
               </>
             ) : (
               <div className="flex flex-col items-center gap-2">
@@ -136,16 +136,16 @@ export default function ChronoScreen() {
               </div>
             )}
 
-            <div className="w-full h-[1px] bg-white/10 my-8"></div>
+            <div className="w-full h-[1px] bg-white/10 my-6 md:my-8"></div>
             
-            <div className="text-[10px] text-gray-500 uppercase tracking-[0.2em] mb-4">Core Telemetry</div>
-            <div className="flex items-center gap-3 w-full p-3 bg-black/40 rounded border border-white/5">
-              <div className="w-10 h-10 bg-gold/10 rounded flex items-center justify-center border border-gold/20">
-                <MapPin className="w-5 h-5 text-gold" />
+            <div className="text-[9px] md:text-[10px] text-gray-500 uppercase tracking-[0.2em] mb-3 md:mb-4">Core Telemetry</div>
+            <div className="flex items-center gap-3 w-full p-2 md:p-3 bg-black/40 rounded border border-white/5">
+              <div className="w-8 h-8 md:w-10 md:h-10 bg-gold/10 rounded flex items-center justify-center border border-gold/20 shrink-0">
+                <MapPin className="w-4 md:w-5 md:h-5 text-gold" />
               </div>
               <div className="text-left">
-                <div className="text-[10px] font-bold text-white uppercase">Midrand Hub</div>
-                <div className="text-[9px] text-gray-600 uppercase">Sector 2.4 - North Gateway</div>
+                <div className="text-[9px] md:text-[10px] font-bold text-white uppercase leading-tight">Midrand Hub</div>
+                <div className="text-[8px] md:text-[9px] text-gray-600 uppercase">Sector 2.4 - North Gateway</div>
               </div>
             </div>
           </div>

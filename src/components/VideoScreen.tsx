@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { useEffect, useRef } from 'react';
 
 interface VideoScreenProps {
   onComplete: () => void;
@@ -7,69 +6,12 @@ interface VideoScreenProps {
 
 export default function VideoScreen({ onComplete }: VideoScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isPlayingReverse, setIsPlayingReverse] = useState(false);
-  const [playCount, setPlayCount] = useState(0);
-
-  // Desired duration for each half (forward/reverse) to reach 1m total
-  const DESIRED_HALF_DURATION = 30; 
 
   useEffect(() => {
     if (videoRef.current) {
-      const video = videoRef.current;
-      const handleMetadata = () => {
-        // Calculate playback rate to make it 30s
-        // rate = actual_duration / desired_duration
-        const rate = video.duration / DESIRED_HALF_DURATION;
-        video.playbackRate = Math.max(rate, 0.05); // Support very slow speeds
-      };
-      
-      video.addEventListener('loadedmetadata', handleMetadata);
-      // If already loaded
-      if (video.duration) handleMetadata();
-      
-      return () => video.removeEventListener('loadedmetadata', handleMetadata);
+      videoRef.current.playbackRate = 1.0;
     }
   }, []);
-
-  // For reverse playback loop
-  useEffect(() => {
-    if (!isPlayingReverse) return;
-
-    let frameId: number;
-    let lastTime = performance.now();
-    const video = videoRef.current;
-    if (!video) return;
-
-    // Fixed decrement rate per second
-    const reverseRate = video.duration / DESIRED_HALF_DURATION;
-
-    const reverseLoop = (now: number) => {
-      const deltaTime = (now - lastTime) / 1000;
-      lastTime = now;
-
-      if (video) {
-        const newTime = video.currentTime - (deltaTime * reverseRate);
-        if (newTime <= 0) {
-          video.currentTime = 0;
-          setIsPlayingReverse(false);
-          onComplete();
-          return;
-        }
-        video.currentTime = newTime;
-      }
-      frameId = requestAnimationFrame(reverseLoop);
-    };
-
-    frameId = requestAnimationFrame(reverseLoop);
-    return () => cancelAnimationFrame(frameId);
-  }, [isPlayingReverse, onComplete]);
-
-  const handleVideoEnded = () => {
-    if (playCount === 0) {
-      setPlayCount(1);
-      setIsPlayingReverse(true);
-    }
-  };
 
   return (
     <div className="w-full h-full bg-black flex items-center justify-center relative overflow-hidden">
@@ -79,7 +21,7 @@ export default function VideoScreen({ onComplete }: VideoScreenProps) {
         autoPlay
         muted
         playsInline
-        onEnded={handleVideoEnded}
+        onEnded={onComplete}
       >
         <source src="/wireframe.mp4" type="video/mp4" />
       </video>
@@ -91,7 +33,7 @@ export default function VideoScreen({ onComplete }: VideoScreenProps) {
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-gold animate-pulse" />
           <span className="text-gold font-mono text-[10px] tracking-[0.5em] uppercase">
-            {isPlayingReverse ? 'Neural Pattern Reverse' : 'Core System Parsing'}
+            Core System Parsing
           </span>
         </div>
         <div className="mt-2 h-px w-48 bg-gradient-to-r from-gold/50 to-transparent" />
@@ -119,3 +61,4 @@ export default function VideoScreen({ onComplete }: VideoScreenProps) {
     </div>
   );
 }
+
