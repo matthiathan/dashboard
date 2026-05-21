@@ -82,9 +82,9 @@ export default function ChronoScreen() {
   ];
 
   return (
-    <div className="w-full h-full flex flex-col">
+    <div className="w-full h-full flex flex-col overflow-hidden min-h-0 select-none">
       {/* Grid of Analog Clocks - Always side-by-side using 3 columns */}
-      <div className="flex-1 grid grid-cols-3 gap-3 sm:gap-4 md:gap-6 overflow-y-auto pb-4">
+      <div className="flex-1 grid grid-cols-3 gap-2 sm:gap-3 md:gap-5 overflow-hidden min-h-0 pb-1">
         {zones.map((zone, idx) => {
           const { hour, minute, second } = getZoneHMS(time, zone.timeZone);
           const zoneTimeStr = formatZonetime(time, zone.timeZone);
@@ -97,33 +97,33 @@ export default function ChronoScreen() {
           return (
             <motion.div
               key={zone.id}
-              initial={{ opacity: 0, y: 15 }}
+              initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: idx * 0.08 }}
-              className={`flex flex-col justify-between bg-charcoal-elevated/90 border rounded-xl p-3 sm:p-5 relative overflow-hidden shadow-2xl transition-all duration-300 ${
+              className={`flex flex-col justify-between bg-charcoal-elevated/90 border rounded-xl p-2.5 sm:p-4 relative overflow-hidden shadow-2xl transition-all duration-300 min-h-0 h-full ${
                 zone.id === 'sast' ? 'border-gold/30 bg-gold/[0.01]' : 'border-white/5'
               }`}
             >
               {/* Outer light indicators */}
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+              <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
               
               {/* Card Header */}
-              <div className="flex justify-between items-center border-b border-white/5 pb-2">
-                <div className="flex items-center gap-1 sm:gap-2 min-w-0">
-                  <Globe2 className={`w-3.5 h-3.5 ${zone.accent} shrink-0`} />
-                  <span className="text-[10px] sm:text-xs font-bold text-white uppercase tracking-wider truncate">
+              <div className="flex justify-between items-center border-b border-white/5 pb-1.5 shrink-0">
+                <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
+                  <Globe2 className={`w-3 h-3 sm:w-3.5 sm:h-3.5 ${zone.accent} shrink-0`} />
+                  <span className="text-[clamp(8.5px,1.4vh,11px)] font-bold text-white uppercase tracking-wider truncate">
                     {zone.id === 'sast' ? 'S. Africa' : zone.id === 'cet' ? 'Germany' : 'Dubai'}
                   </span>
                 </div>
-                <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-black/40 text-gray-400 font-bold shrink-0">
+                <span className="text-[clamp(7.5px,1.2vh,9.5px)] font-mono px-1 py-0.2 rounded bg-black/40 text-gray-400 font-bold shrink-0">
                   {zone.flag}
                 </span>
               </div>
 
               {/* SVG Analog Clock Section */}
-              <div className="flex-1 flex items-center justify-center my-3 sm:my-5 min-h-[90px] md:min-h-[140px]">
-                <div className="relative w-24 h-24 sm:w-28 sm:h-28 md:w-36 md:h-36 max-w-full">
-                  <svg width="100%" height="100%" viewBox="0 0 100 100">
+              <div className="flex-1 flex items-center justify-center my-2 sm:my-3 min-h-0 relative">
+                <div className="relative w-full h-full max-h-[18vh] aspect-square flex items-center justify-center">
+                  <svg width="100%" height="100%" viewBox="0 0 100 100" className="max-w-[140px] max-h-[140px]">
                     {/* Clock Face */}
                     <circle cx="50" cy="50" r="46" fill="rgba(0,0,0,0.4)" stroke="currentColor" className="text-white/10" strokeWidth="2.5" />
                     <circle cx="50" cy="50" r="46" fill="none" stroke={zone.accentHex} strokeWidth="1" className="opacity-10" strokeDasharray="1 3" />
@@ -195,17 +195,17 @@ export default function ChronoScreen() {
               </div>
 
               {/* Date Elements and Digital representation underneath */}
-              <div className="border-t border-white/5 pt-2 text-center flex flex-col gap-1">
+              <div className="border-t border-white/5 pt-1.5 text-center flex flex-col gap-0.5 shrink-0">
                 {/* Short Digital Representation */}
-                <span className="font-mono text-xs sm:text-sm font-bold tracking-tight text-white/50">
+                <span className="font-mono text-[clamp(11px,1.9vh,15px)] font-bold tracking-tight text-white/50">
                   {zoneTimeStr.slice(0, 5)}
-                  <span className="text-[9px] text-gray-500 font-normal ml-1">
+                  <span className="text-[clamp(8px,1.3vh,11px)] text-gray-500 font-normal ml-0.5">
                     {zoneTimeStr.slice(6, 8)}
                   </span>
                 </span>
                 
                 {/* Full Date Underneath */}
-                <span className={`text-[8px] sm:text-[10px] md:text-sm font-bold tracking-wide leading-tight truncate ${zone.accent}`}>
+                <span className={`text-[clamp(8px,1.3vh,12px)] font-bold tracking-wide leading-tight truncate ${zone.accent}`}>
                   {zoneDateStr.replace(', 2026', '')}
                 </span>
               </div>

@@ -10,13 +10,46 @@ import WeatherScreen from './components/WeatherScreen';
 import TrafficScreen from './components/TrafficScreen';
 import AuthScreen from './components/AuthScreen';
 import DashboardScreen from './components/DashboardScreen';
-import { LogOut } from 'lucide-react';
+import { LogOut, Maximize, Minimize } from 'lucide-react';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>(AppScreen.VIDEO);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+
+  // Sync isFullscreen with Native Browser Fullscreen State
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+    document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
+      document.removeEventListener('MSFullscreenChange', handleFullscreenChange);
+    };
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch((err) => {
+        console.error(`Error attempting to enable native fullscreen: ${err.message}`);
+      });
+    } else {
+      if (document.exitFullscreen) {
+        document.exitFullscreen().catch((err) => {
+          console.error(`Error exiting native fullscreen: ${err.message}`);
+        });
+      }
+    }
+  };
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session }, error }) => {
@@ -163,7 +196,7 @@ export default function App() {
           >
             <DashboardScreen 
               isFullscreenMode={isFullscreen} 
-              onToggleFullscreenMode={() => setIsFullscreen(!isFullscreen)} 
+              onToggleFullscreenMode={toggleFullscreen} 
             />
           </motion.div>
         );
@@ -249,38 +282,77 @@ export default function App() {
 
   return (
     <div 
-      className="landscape-lock w-full min-h-screen md:h-screen md:w-screen bg-charcoal overflow-x-hidden md:overflow-hidden"
+      className={`landscape-lock h-[100dvh] w-[100dvw] bg-charcoal flex flex-col ${
+        isFullscreen ? 'overflow-hidden touch-none' : 'overflow-hidden'
+      }`}
+      id="app-root-wrapper"
     >
-      <div className={`ops-container relative min-h-screen md:h-full flex flex-col transition-all duration-300 ${
-        isFullscreen ? 'p-0 border-0 md:p-0 md:border-0' : 'p-4 md:p-6 pb-12 md:pb-6'
-      }`}>
+      <div className={`ops-container relative h-full w-full flex flex-col min-h-0 transition-all duration-300 ${
+        isFullscreen ? 'p-0 border-0 overflow-hidden touch-none' : 'p-4 md:p-6 pb-6 md:pb-6 overflow-hidden'
+      }`} id="app-ops-container">
         
         {/* Navigation Tabs Header: Hidden when in full-screen or unauthenticated */}
         {session && currentScreen !== AppScreen.VIDEO && !isFullscreen && (
-          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 mb-4 border-b border-white/5 pb-2.5 shrink-0 z-40 overflow-x-auto no-scrollbar">
-            {[
-              { id: AppScreen.DASHBOARD, label: 'Command Grid' },
-              { id: AppScreen.TASKS, label: 'Tasks Desk' },
-              { id: AppScreen.CALENDAR, label: 'Operations Calendar' },
-              { id: AppScreen.CHRONO, label: 'Chrono Telemetry' },
-              { id: AppScreen.WEATHER, label: 'Weather Station' },
-              { id: AppScreen.TRAFFIC, label: 'Transit Dispatch' }
-            ].map((tab) => {
-              const isActive = currentScreen === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setCurrentScreen(tab.id)}
-                  className={`px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                    isActive 
-                      ? 'bg-gold/20 text-gold border border-gold/40 shadow-[0_0_8px_rgba(197,160,89,0.12)] font-black' 
-                      : 'bg-white/[0.02] border border-white/5 text-white/50 hover:bg-white/[0.05] hover:text-white/80'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              );
-            })}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4 border-b border-white/5 pb-2.5 shrink-0 z-40">
+            {/* Left navigation tabs */}
+            <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar">
+              {[
+                { id: AppScreen.DASHBOARD, label: 'Command Grid' },
+                { id: AppScreen.TASKS, label: 'Tasks Desk' },
+                { id: AppScreen.CALENDAR, label: 'Operations Calendar' },
+                { id: AppScreen.CHRONO, label: 'Chrono Telemetry' },
+                { id: AppScreen.WEATHER, label: 'Weather Station' },
+                { id: AppScreen.TRAFFIC, label: 'Transit Dispatch' }
+              ].map((tab) => {
+                const isActive = currentScreen === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setCurrentScreen(tab.id)}
+                    className={`px-3 py-1.5 rounded text-[10px] font-black uppercase tracking-wider transition-all cursor-pointer ${
+                      isActive 
+                        ? 'bg-gold/20 text-gold border border-gold/40 shadow-[0_0_8px_rgba(197,160,89,0.12)] font-black' 
+                        : 'bg-white/[0.02] border border-white/5 text-white/50 hover:bg-white/[0.05] hover:text-white/80'
+                    }`}
+                  >
+                    {tab.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Right operator telemetry and full screen control */}
+            <div className="flex items-center gap-3 self-end md:self-auto shrink-0 font-mono text-[10px]">
+              <div className="flex items-center gap-2 text-right">
+                <div className="flex flex-col leading-tight">
+                  <span className="text-gray-500 text-[8px] font-bold uppercase tracking-widest text-right">SYS OPERATOR</span>
+                  <span className="text-gold font-bold truncate max-w-[140px]" title={session?.user?.email}>
+                    {session?.user?.email || 'N/A'}
+                  </span>
+                </div>
+                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              </div>
+
+              <div className="h-4 w-[1px] bg-white/10" />
+
+              <button
+                onClick={toggleFullscreen}
+                className="px-2.5 py-1.5 bg-black/60 hover:bg-gold/10 border border-gold/30 hover:border-gold text-gold transition-all duration-200 rounded flex items-center gap-1.5 font-bold uppercase cursor-pointer shadow-[0_0_10px_rgba(197,160,89,0.05)] hover:shadow-[0_0_15px_rgba(197,160,89,0.15)] outline-none"
+                title={isFullscreen ? "Exit Fullscreen Mode" : "Maximize Grid Layout"}
+              >
+                {isFullscreen ? (
+                  <>
+                    <Minimize className="w-3.5 h-3.5 text-gold shrink-0" style={{ strokeWidth: 3 }} />
+                    <span className="hidden sm:inline text-[9px] font-bold uppercase tracking-wider">MINIMIZE</span>
+                  </>
+                ) : (
+                  <>
+                    <Maximize className="w-3.5 h-3.5 text-gold shrink-0" style={{ strokeWidth: 3 }} />
+                    <span className="hidden sm:inline text-[9px] font-bold uppercase tracking-wider">MAXIMIZE</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         )}
 

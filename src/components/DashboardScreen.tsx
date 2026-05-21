@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task } from '../types';
 import { motion, AnimatePresence } from 'motion/react';
@@ -29,6 +29,15 @@ interface DashboardScreenProps {
   isFullscreenMode: boolean;
   onToggleFullscreenMode: () => void;
 }
+
+const getRouteSuggestion = (lat: number, lng: number) => {
+  const isNorth = lat < -25.9964;
+  const isEast = lng > 28.1306;
+  if (isNorth && isEast) return "N1 Northbound → R21 Expressway";
+  if (isNorth && !isEast) return "N1 Northbound → N14 West";
+  if (!isNorth && isEast) return "M1 Southbound → N3 Eastern Bypass";
+  return "M1 Southbound → N1 Western Bypass";
+};
 
 export default function DashboardScreen({ isFullscreenMode, onToggleFullscreenMode }: DashboardScreenProps) {
   // Full-screen widget auto-rotation state
@@ -86,12 +95,240 @@ export default function DashboardScreen({ isFullscreenMode, onToggleFullscreenMo
     }
   ]);
 
+  const [settingsLoading, setSettingsLoading] = useState(false);
+
+  // Fetch dashboard_settings for the user on load
+  useEffect(() => {
+    const fetchDashboardSettings = async () => {
+      try {
+        setSettingsLoading(true);
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !session) {
+          return;
+        }
+
+        const { data, error: dbError } = await supabase
+          .from('dashboard_settings')
+          .select('*')
+          .eq('user_id', session.user.id)
+          .maybeSingle();
+
+        if (dbError) {
+          console.warn('Could not load customized traffic slots from Supabase database:', dbError);
+          return;
+        }
+
+        if (data) {
+          setDestList(prev => {
+            const nextList = [...prev];
+            if (data.node_1_name) {
+              nextList[0] = {
+                ...nextList[0],
+                name: data.node_1_name,
+                lat: data.node_1_lat != null ? Number(data.node_1_lat) : nextList[0].lat,
+                lng: data.node_1_lng != null ? Number(data.node_1_lng) : nextList[0].lng,
+                baseRoute: getRouteSuggestion(
+                  data.node_1_lat != null ? Number(data.node_1_lat) : nextList[0].lat,
+                  data.node_1_lng != null ? Number(data.node_1_lng) : nextList[0].lng
+                )
+              };
+            }
+            if (data.node_2_name) {
+              nextList[1] = {
+                ...nextList[1],
+                name: data.node_2_name,
+                lat: data.node_2_lat != null ? Number(data.node_2_lat) : nextList[1].lat,
+                lng: data.node_2_lng != null ? Number(data.node_2_lng) : nextList[1].lng,
+                baseRoute: getRouteSuggestion(
+                  data.node_2_lat != null ? Number(data.node_2_lat) : nextList[1].lat,
+                  data.node_2_lng != null ? Number(data.node_2_lng) : nextList[1].lng
+                )
+              };
+            }
+            return nextList;
+          });
+        }
+      } catch (err) {
+        console.error('Failure in reading settings state telemetry:', err);
+      } finally {
+        setSettingsLoading(false);
+      }
+    };
+
+    fetchDashboardSettings();
+  }, []);
+
+  // Save settings asynchronously in background to Supabase
+  const saveSettingsToSupabase = async (updatedList: Destination[]) => {
+    try {
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError || !session) {
+        console.warn('Supabase not authenticated, bypassing database setting persistence.');
+        return;
+      }
+
+      const node1 = updatedList[0];
+      const node2 = updatedList[1];
+
+      const { error: upsertError } = await supabase
+        .from('dashboard_settings')
+        .upsert({
+          user_id: session.user.id,
+          node_1_name: node1?.name || '',
+          node_1_lat: node1?.lat || 0,
+          node_1_lng: node1?.lng || 0,
+          node_2_name: node2?.name || '',
+          node_2_lat: node2?.lat || 0,
+          node_2_lng: node2?.lng || 0
+        });
+
+      if (upsertError) {
+        console.error('Error upserting dashboard settings telemetry slots:', upsertError);
+      }
+    } catch (err) {
+      console.error('Tactical map setting persist failure:', err);
+    }
+  };
+
   // Modal map coordinate states
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
   const [selectedDestIndex, setSelectedDestIndex] = useState<number | null>(null);
   const [modalName, setModalName] = useState('');
   const [modalAddress, setModalAddress] = useState('');
   const [modalCoords, setModalCoords] = useState({ lat: -25.9964, lng: 28.1306 });
+
+  // Free & Open-Source Nominatim/Photon Geocoding Integration
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!searchQuery.trim()) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearchLoading(true);
+    setSearchError(null);
+
+    const delayDebounceFn = setTimeout(async () => {
+      try {
+        // Query OpenStreetMap Nominatim API (with standard addressdetails and limit=5)
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(searchQuery)}&limit=5&addressdetails=1`;
+        
+        const response = await fetch(url, {
+          headers: {
+            'Accept-Language': 'en',
+            'User-Agent': 'Taskflow-OpsPortal/1.0 (mattcoombes247@gmail.com)'
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error('Nominatim returned error status');
+        }
+
+        const data = await response.json();
+        
+        if (Array.isArray(data) && data.length > 0) {
+          const results = data.map((item: any) => {
+            const road = item.address?.road || '';
+            const suburb = item.address?.suburb || '';
+            const city = item.address?.city || item.address?.town || item.address?.village || '';
+            const nameCandidate = item.name || road || suburb || city || 'Search Result';
+            return {
+              name: nameCandidate,
+              address: item.display_name,
+              lat: parseFloat(item.lat),
+              lng: parseFloat(item.lon)
+            };
+          });
+          setSearchResults(results);
+        } else {
+          // Fallback to Photon API if Nominatim returned empty results
+          await fallbackToPhoton(searchQuery);
+        }
+      } catch (err: any) {
+        console.warn('Nominatim query failed or rate-limited. Activating active Photon API failover:', err);
+        await fallbackToPhoton(searchQuery);
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 500); // 500ms Debounce limit to adhere to Osm Nominatim requirements
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [searchQuery]);
+
+  const fallbackToPhoton = async (query: string) => {
+    try {
+      const url = `https://photon.komoot.io/api/?q=${encodeURIComponent(query)}&limit=5`;
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error('Photon API returned error status');
+      }
+      const data = await response.json();
+      if (data && data.features && Array.isArray(data.features)) {
+        const results = data.features.map((feat: any) => {
+          const props = feat.properties || {};
+          const geom = feat.geometry || {};
+          const coords = geom.coordinates || [0, 0]; // Photon returns geojson coordinates as [longitude, latitude]
+          
+          const parts = [
+            props.name,
+            props.street,
+            props.city || props.town || props.district,
+            props.state,
+            props.country
+          ].filter(Boolean);
+          
+          return {
+            name: props.name || props.street || 'Search Result',
+            address: parts.join(', '),
+            lat: coords[1],
+            lng: coords[0]
+          };
+        });
+        setSearchResults(results);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (err: any) {
+      console.error('All open-source geocoders exhausted:', err);
+      setSearchError('Geocoding search service is currently offline');
+    }
+  };
+
+  const handleSelectSearchResult = (result: { name: string; address: string; lat: number; lng: number }) => {
+    setModalName(result.name);
+    setModalAddress(result.address);
+    setModalCoords({ lat: result.lat, lng: result.lng });
+
+    if (selectedDestIndex !== null) {
+      const baseRoute = getRouteSuggestion(result.lat, result.lng);
+      
+      const nextList = destList.map((dest, idx) => {
+        if (idx === selectedDestIndex) {
+          return {
+            ...dest,
+            name: result.name,
+            address: result.address,
+            lat: result.lat,
+            lng: result.lng,
+            baseRoute: baseRoute
+          };
+        }
+        return dest;
+      });
+
+      setDestList(nextList);
+      saveSettingsToSupabase(nextList);
+    }
+
+    setIsMapModalOpen(false);
+    setSelectedDestIndex(null);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
 
   const MAP_BOUNDS = {
     minLng: 27.70,
@@ -109,15 +346,6 @@ export default function DashboardScreen({ isFullscreenMode, onToggleFullscreenMo
     { name: 'Centurion Tech Park', address: 'John Vorster Dr, Centurion', lat: -25.8640, lng: 28.2122, baseRoute: 'N1 Danie Joubert' }
   ];
 
-  const getRouteSuggestion = (lat: number, lng: number) => {
-    const isNorth = lat < -25.9964;
-    const isEast = lng > 28.1306;
-    if (isNorth && isEast) return "N1 Northbound → R21 Expressway";
-    if (isNorth && !isEast) return "N1 Northbound → N14 West";
-    if (!isNorth && isEast) return "M1 Southbound → N3 Eastern Bypass";
-    return "M1 Southbound → N1 Western Bypass";
-  };
-
   const openMapForWidget = (idx: number) => {
     setSelectedDestIndex(idx);
     const dest = destList[idx];
@@ -130,19 +358,28 @@ export default function DashboardScreen({ isFullscreenMode, onToggleFullscreenMo
   const handleConfirmLocation = () => {
     if (selectedDestIndex === null) return;
     const baseRoute = getRouteSuggestion(modalCoords.lat, modalCoords.lng);
-    setDestList(prev => prev.map((dest, idx) => {
+    const updatedName = modalName || 'Custom Waypoint';
+    const updatedAddress = modalAddress || 'Gauteng Grid Coordinate';
+    const updatedLat = modalCoords.lat;
+    const updatedLng = modalCoords.lng;
+
+    const nextList = destList.map((dest, idx) => {
       if (idx === selectedDestIndex) {
         return {
           ...dest,
-          name: modalName || 'Custom Waypoint',
-          address: modalAddress || 'Gauteng Grid Coordinate',
-          lat: modalCoords.lat,
-          lng: modalCoords.lng,
+          name: updatedName,
+          address: updatedAddress,
+          lat: updatedLat,
+          lng: updatedLng,
           baseRoute: baseRoute
         };
       }
       return dest;
-    }));
+    });
+
+    setDestList(nextList);
+    saveSettingsToSupabase(nextList);
+
     setIsMapModalOpen(false);
     setSelectedDestIndex(null);
   };
@@ -1144,6 +1381,60 @@ export default function DashboardScreen({ isFullscreenMode, onToggleFullscreenMo
                 {/* Pin Meta Fields Panel (Span 5) */}
                 <div className="md:col-span-4 flex flex-col justify-between gap-3 text-left">
                   <div className="flex flex-col gap-3">
+                    {/* Custom Free Open-Source Autocomplete Search Input */}
+                    <div className="flex flex-col gap-1 relative">
+                      <label className="text-[9px] font-bold font-mono text-gold uppercase flex items-center gap-1">
+                        <Search className="w-3 h-3 text-gold" style={{ strokeWidth: 3 }} /> SEARCH VIA GEOMETERS (OSM / PHOTON)
+                      </label>
+                      <div className="relative">
+                        <input 
+                          type="text" 
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Search address or landmark... (e.g. Pretoria)"
+                          className="w-full bg-black border border-gold/40 hover:border-gold/60 focus:border-gold focus:ring-2 focus:ring-gold/20 shadow-[0_0_10px_rgba(197,160,89,0.15)] rounded p-2.5 pr-8 text-xs text-gold font-mono placeholder:text-gold/30 outline-none transition-all duration-300"
+                        />
+                        {searchLoading && (
+                          <div className="absolute right-2.5 top-1/2 -translate-y-1/2">
+                            <div className="w-3.5 h-3.5 border-2 border-gold/20 border-t-gold rounded-full animate-spin" />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Dropdown Results list styled strictly to existing telemetry aesthetic */}
+                      {searchResults.length > 0 && (
+                        <div className="absolute z-[60] left-0 right-0 top-full mt-1 bg-charcoal-elevated border border-gold/30 backdrop-blur-md rounded-lg shadow-2xl max-h-[140px] overflow-y-auto custom-scrollbar flex flex-col min-w-0">
+                          {searchResults.map((result, rIdx) => (
+                            <button
+                              key={rIdx}
+                              type="button"
+                              onClick={() => handleSelectSearchResult(result)}
+                              className="w-full text-left px-3 py-2 border-b border-white/5 hover:bg-white/5 transition-colors cursor-pointer flex flex-col gap-0.5 outline-none focus:bg-white/5"
+                            >
+                              <span className="text-white text-[11px] font-bold font-mono truncate">
+                                {result.name}
+                              </span>
+                              <span className="text-gray-400 text-[8.5px] font-sans truncate">
+                                {result.address}
+                              </span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {searchQuery.trim() && !searchLoading && searchResults.length === 0 && (
+                        <div className="absolute z-[60] left-0 right-0 top-full mt-1 bg-[#111111]/95 border border-white/5 backdrop-blur-md rounded-lg p-2 text-center text-[9px] font-mono text-gray-500">
+                          No transit destinations matched
+                        </div>
+                      )}
+
+                      {searchError && (
+                        <div className="absolute z-[60] left-0 right-0 top-full mt-1 bg-[#111111]/95 border border-red-900/40 backdrop-blur-md rounded-lg p-2 text-center text-[9px] font-mono text-red-400">
+                          {searchError}
+                        </div>
+                      )}
+                    </div>
+
                     {/* Name Input */}
                     <div className="flex flex-col gap-1">
                       <label className="text-[9px] font-bold font-mono text-gray-400 uppercase">Destination Name</label>

@@ -129,4 +129,44 @@
   }
 }
 
+/* Google Maps Places Autocomplete Dark Mode Overrides */
+.pac-container {
+  background-color: #111111 !important;
+  border: 1px solid rgba(197, 160, 89, 0.4) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.8) !important;
+  font-family: "Inter", ui-sans-serif, system-ui, sans-serif !important;
+  margin-top: 4px !important;
+  z-index: 100000 !important; /* Always sits on top of z-50 modal */
+  overflow: hidden !important;
+}
+
+.pac-item {
+  border-top: 1px solid rgba(255, 255, 255, 0.05) !important;
+  padding: 8px 12px !important;
+  color: #a3a3a3 !important;
+  cursor: pointer !important;
+  font-size: 11px !important;
+  transition: all 0.15s ease;
+}
+
+.pac-item:hover, .pac-item:focus, .pac-item-selected {
+  background-color: rgba(197, 160, 89, 0.1) !important;
+}
+
+.pac-item-query {
+  font-size: 13px !important;
+  color: #ffffff !important;
+}
+
+.pac-matched {
+  color: #c5a059 !important;
+  font-weight: bold !important;
+}
+
+.pac-icon {
+  filter: invert(1) brightness(1.5) sepia(100%) saturate(300%) hue-rotate(5deg) !important;
+}
+
+
 
