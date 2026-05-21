@@ -16,18 +16,13 @@ interface WeatherInfo {
   isDay: boolean;
 }
 
-interface Destination {
-  id: string;
-  name: string;
-  address: string;
-  lat: number;
-  lng: number;
-  baseRoute: string;
-}
+import { Destination } from '../hooks/useDashboardSettings';
 
 interface DashboardScreenProps {
   isFullscreenMode: boolean;
   onToggleFullscreenMode: () => void;
+  destList: Destination[];
+  onUpdateNodeLocation: (nodeIndex: number, newName: string, lat: number, lng: number) => void;
 }
 
 const getRouteSuggestion = (lat: number, lng: number) => {
@@ -39,7 +34,12 @@ const getRouteSuggestion = (lat: number, lng: number) => {
   return "M1 Southbound → N1 Western Bypass";
 };
 
-export default function DashboardScreen({ isFullscreenMode, onToggleFullscreenMode }: DashboardScreenProps) {
+export default function DashboardScreen({ 
+  isFullscreenMode, 
+  onToggleFullscreenMode, 
+  destList, 
+  onUpdateNodeLocation 
+}: DashboardScreenProps) {
   // Full-screen widget auto-rotation state
   const [activeWidgetIdx, setActiveWidgetIdx] = useState<number>(0);
 
@@ -75,120 +75,6 @@ export default function DashboardScreen({ isFullscreenMode, onToggleFullscreenMo
   const [time, setTime] = useState(new Date());
 
   const DEFAULT_COORDS = { lat: -25.9964, lng: 28.1306 }; // Midrand
-
-  const [destList, setDestList] = useState<Destination[]>([
-    {
-      id: 'northwold',
-      name: 'Northwold Gardens',
-      address: 'Randburg, Gauteng',
-      lat: -26.0728,
-      lng: 27.9545,
-      baseRoute: 'N1 Western Bypass → Beyers Naudé'
-    },
-    {
-      id: 'roodekrans',
-      name: '1237 Anemone Str',
-      address: 'Roodekrans, Roodepoort',
-      lat: -26.1139,
-      lng: 27.8446,
-      baseRoute: 'N1 Western Bypass → Hendrik Potgieter'
-    }
-  ]);
-
-  const [settingsLoading, setSettingsLoading] = useState(false);
-
-  // Fetch dashboard_settings for the user on load
-  useEffect(() => {
-    const fetchDashboardSettings = async () => {
-      try {
-        setSettingsLoading(true);
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-        if (sessionError || !session) {
-          return;
-        }
-
-        const { data, error: dbError } = await supabase
-          .from('dashboard_settings')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .maybeSingle();
-
-        if (dbError) {
-          console.warn('Could not load customized traffic slots from Supabase database:', dbError);
-          return;
-        }
-
-        if (data) {
-          setDestList(prev => {
-            const nextList = [...prev];
-            if (data.node_1_name) {
-              nextList[0] = {
-                ...nextList[0],
-                name: data.node_1_name,
-                lat: data.node_1_lat != null ? Number(data.node_1_lat) : nextList[0].lat,
-                lng: data.node_1_lng != null ? Number(data.node_1_lng) : nextList[0].lng,
-                baseRoute: getRouteSuggestion(
-                  data.node_1_lat != null ? Number(data.node_1_lat) : nextList[0].lat,
-                  data.node_1_lng != null ? Number(data.node_1_lng) : nextList[0].lng
-                )
-              };
-            }
-            if (data.node_2_name) {
-              nextList[1] = {
-                ...nextList[1],
-                name: data.node_2_name,
-                lat: data.node_2_lat != null ? Number(data.node_2_lat) : nextList[1].lat,
-                lng: data.node_2_lng != null ? Number(data.node_2_lng) : nextList[1].lng,
-                baseRoute: getRouteSuggestion(
-                  data.node_2_lat != null ? Number(data.node_2_lat) : nextList[1].lat,
-                  data.node_2_lng != null ? Number(data.node_2_lng) : nextList[1].lng
-                )
-              };
-            }
-            return nextList;
-          });
-        }
-      } catch (err) {
-        console.error('Failure in reading settings state telemetry:', err);
-      } finally {
-        setSettingsLoading(false);
-      }
-    };
-
-    fetchDashboardSettings();
-  }, []);
-
-  // Save settings asynchronously in background to Supabase
-  const saveSettingsToSupabase = async (updatedList: Destination[]) => {
-    try {
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError || !session) {
-        console.warn('Supabase not authenticated, bypassing database setting persistence.');
-        return;
-      }
-
-      const node1 = updatedList[0];
-      const node2 = updatedList[1];
-
-      const { error: upsertError } = await supabase
-        .from('dashboard_settings')
-        .upsert({
-          user_id: session.user.id,
-          node_1_name: node1?.name || '',
-          node_1_lat: node1?.lat || 0,
-          node_1_lng: node1?.lng || 0,
-          node_2_name: node2?.name || '',
-          node_2_lat: node2?.lat || 0,
-          node_2_lng: node2?.lng || 0
-        });
-
-      if (upsertError) {
-        console.error('Error upserting dashboard settings telemetry slots:', upsertError);
-      }
-    } catch (err) {
-      console.error('Tactical map setting persist failure:', err);
-    }
-  };
 
   // Modal map coordinate states
   const [isMapModalOpen, setIsMapModalOpen] = useState(false);
@@ -304,24 +190,7 @@ export default function DashboardScreen({ isFullscreenMode, onToggleFullscreenMo
     setModalCoords({ lat: result.lat, lng: result.lng });
 
     if (selectedDestIndex !== null) {
-      const baseRoute = getRouteSuggestion(result.lat, result.lng);
-      
-      const nextList = destList.map((dest, idx) => {
-        if (idx === selectedDestIndex) {
-          return {
-            ...dest,
-            name: result.name,
-            address: result.address,
-            lat: result.lat,
-            lng: result.lng,
-            baseRoute: baseRoute
-          };
-        }
-        return dest;
-      });
-
-      setDestList(nextList);
-      saveSettingsToSupabase(nextList);
+      onUpdateNodeLocation(selectedDestIndex, result.name, result.lat, result.lng);
     }
 
     setIsMapModalOpen(false);
@@ -357,28 +226,11 @@ export default function DashboardScreen({ isFullscreenMode, onToggleFullscreenMo
 
   const handleConfirmLocation = () => {
     if (selectedDestIndex === null) return;
-    const baseRoute = getRouteSuggestion(modalCoords.lat, modalCoords.lng);
     const updatedName = modalName || 'Custom Waypoint';
-    const updatedAddress = modalAddress || 'Gauteng Grid Coordinate';
     const updatedLat = modalCoords.lat;
     const updatedLng = modalCoords.lng;
 
-    const nextList = destList.map((dest, idx) => {
-      if (idx === selectedDestIndex) {
-        return {
-          ...dest,
-          name: updatedName,
-          address: updatedAddress,
-          lat: updatedLat,
-          lng: updatedLng,
-          baseRoute: baseRoute
-        };
-      }
-      return dest;
-    });
-
-    setDestList(nextList);
-    saveSettingsToSupabase(nextList);
+    onUpdateNodeLocation(selectedDestIndex, updatedName, updatedLat, updatedLng);
 
     setIsMapModalOpen(false);
     setSelectedDestIndex(null);

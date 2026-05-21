@@ -2,40 +2,20 @@ import { useEffect, useState } from 'react';
 import { Compass, Navigation, AlertTriangle, Route, Clock, ArrowRight, ShieldAlert, MapPin } from 'lucide-react';
 import { motion } from 'motion/react';
 
-interface Destination {
-  id: string;
-  name: string;
-  address: string;
-  lat: number;
-  lng: number;
-  baseRoute: string;
+import { Destination } from '../hooks/useDashboardSettings';
+
+interface TrafficScreenProps {
+  destList: Destination[];
 }
 
-export default function TrafficScreen() {
+export default function TrafficScreen({ destList }: TrafficScreenProps) {
   const [time, setTime] = useState(new Date());
   const [userCoords, setUserCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geoStatus, setGeoStatus] = useState<'prompt' | 'granted' | 'denied' | 'error'>('prompt');
   
   const DEFAULT_COORDS = { lat: -25.9964, lng: 28.1306 }; // Midrand
 
-  const destinations: Destination[] = [
-    {
-      id: 'northwold',
-      name: 'Northwold Gardens',
-      address: 'Randburg, Gauteng',
-      lat: -26.0728,
-      lng: 27.9545,
-      baseRoute: 'N1 Western Bypass → Beyers Naudé Dr'
-    },
-    {
-      id: 'roodekrans',
-      name: '1237 Anemone Str',
-      address: 'Roodekrans, Roodepoort, 1724',
-      lat: -26.1139,
-      lng: 27.8446,
-      baseRoute: 'N1 Western Bypass → Hendrik Potgieter Rd'
-    }
-  ];
+  const destinations = destList;
 
   useEffect(() => {
     const timer = setInterval(() => {

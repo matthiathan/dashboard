@@ -11,12 +11,15 @@ import TrafficScreen from './components/TrafficScreen';
 import AuthScreen from './components/AuthScreen';
 import DashboardScreen from './components/DashboardScreen';
 import { LogOut, Maximize, Minimize } from 'lucide-react';
+import { useDashboardSettings } from './hooks/useDashboardSettings';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<AppScreen>(AppScreen.VIDEO);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [session, setSession] = useState<any>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+
+  const { destList, updateNodeLocation } = useDashboardSettings();
 
   // Sync isFullscreen with Native Browser Fullscreen State
   useEffect(() => {
@@ -197,6 +200,8 @@ export default function App() {
             <DashboardScreen 
               isFullscreenMode={isFullscreen} 
               onToggleFullscreenMode={toggleFullscreen} 
+              destList={destList}
+              onUpdateNodeLocation={updateNodeLocation}
             />
           </motion.div>
         );
@@ -262,7 +267,7 @@ export default function App() {
             transition={{ duration: 1 }}
             className="w-full h-full"
           >
-            <TrafficScreen />
+            <TrafficScreen destList={destList} />
           </motion.div>
         );
       case AppScreen.AUTH:
